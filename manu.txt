@@ -1,0 +1,4 @@
+run: pintos --gdb -v -k -T 60 --bochs -- -q run <>
+debug: pintos-gdb kernel.o
+find bug: set $eip = ((void**) $esp)[1]
+
