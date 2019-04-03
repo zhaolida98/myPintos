@@ -201,6 +201,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  /*task2-priority preempt*/
+  if(thread_current()->priority < priority){
+    thread_yield();
+  }
   return tid;
 }
 
@@ -237,7 +241,8 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  /*task2-alarm priority: change list_push_back into list_insert_ordered*/
+  list_insert_ordered (&ready_list, &t->elem, (list_less_func *)&larger_thread_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -308,7 +313,8 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+  /*task2-alarm priority: change list_push_back into list_insert_ordered*/
+  list_insert_ordered (&ready_list, &cur->elem, (list_less_func *)&larger_thread_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -336,6 +342,8 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  /*task2-priority set*/
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -463,9 +471,12 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  /*task1 init block time*/
+  t->block_ticks = 0;
 
   old_level = intr_disable ();
-  list_push_back (&all_list, &t->allelem);
+  /*task2-alarm priority: change list_push_back into list_insert_ordered*/
+  list_insert_ordered (&all_list, &t->allelem, (list_less_func *)&larger_thread_priority, NULL);
   intr_set_level (old_level);
 }
 
@@ -579,6 +590,21 @@ allocate_tid (void)
   return tid;
 }
 
+/*task1 check ticks implement*/
+void check_block_thread_ticks(struct thread *t, void *notused UNUSED){
+  if(t->block_ticks > 0 && t->status == THREAD_BLOCKED){
+    t->block_ticks --;
+    if(t->block_ticks == 0){
+      thread_unblock(t);
+    }
+  }
+}
+
+/*task2-alarm priority compare priority implement*/
+bool larger_thread_priority(struct list_elem *insert_elem, struct list_elem *e, void *aux UNUSED){
+  return (list_entry(insert_elem, struct thread, elem)->priority 
+  > list_entry(e, struct thread, elem)->priority);
+}
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
