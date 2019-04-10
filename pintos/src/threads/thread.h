@@ -109,6 +109,10 @@ struct thread
     struct list locks;
     struct lock *waiting_lock;
     int base_priority;
+
+    /*task3 nice and recent_cpu*/
+    int nice;
+    fixed_t recent_cpu;
   };
 
 /* If false (default), use round-robin scheduler.
@@ -125,9 +129,10 @@ void thread_print_stats (void);
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
+bool larger_thread_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED); //task1
+
 void thread_block (void);
 void thread_unblock (struct thread *);
-
 struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
@@ -146,10 +151,14 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
-/*task1: check each thread in every tick*/
-void check_block_thread_ticks(struct thread *t, void *notused UNUSED);
-
-/*task2-alarm priority: implement priority comparation*/
-bool larger_thread_priority(struct list_elem *insert_elem, struct list_elem *e, void *aux UNUSED);
+/*tast1*/
+void check_block_thread_ticks (struct thread *t, void *aux UNUSED);
+/*task2*/
+void thread_donate_priority (struct thread *t);
+bool larger_lock_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+void thread_update_priority (struct thread *t);
+/*task3*/
+void mlfqs_cpu_plus_one (void);
+void mlfqs_update_loadavg_and_recentcpu (void);
+void mlfqs_update_priority (struct thread *t);
 #endif /* threads/thread.h */

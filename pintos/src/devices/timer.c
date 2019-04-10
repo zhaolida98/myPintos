@@ -89,26 +89,19 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  /* task1: for passing alarm_zero test*/
-  if(ticks <= 0){
+  if(ticks <= 0)
     return;
-  }
-  /* task1: delete
-  int64_t start = timer_ticks ();
-  */
+  //int64_t start = timer_ticks ();
+
+  //ASSERT (intr_get_level () == INTR_ON);
   ASSERT (intr_get_level () == INTR_ON);
-  
-  /*task1: atom action, set ticks and block it,
-   wait for timer interupt to wake up*/
-  enum intr_level prelevel = intr_disable();
-  struct thread *cur_thread = thread_current();
-  cur_thread->block_ticks = ticks;
-  thread_block();
-  intr_set_level(prelevel); 
-  /*task1: delete
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
-    */
+  enum intr_level old_level = intr_disable ();
+  struct thread *current_thread = thread_current ();
+  current_thread->block_ticks = ticks;
+  thread_block ();
+  intr_set_level (old_level);//task1
+  // while (timer_elapsed (start) < ticks) 
+  //   thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -186,9 +179,18 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  thread_tick ();
+  /*task3*/
+  if (thread_mlfqs)
+  {
+    mlfqs_cpu_plus_one ();
+    if (ticks % TIMER_FREQ == 0)
+      mlfqs_update_loadavg_and_recentcpu ();
+    else if (ticks % 4 == 0)
+      mlfqs_update_priority (thread_current ());
+  }
   /*task1: ckeck tickes for each blocking thread*/
-  thread_foreach(check_block_thread_ticks, NULL);
+  thread_foreach (check_block_thread_ticks, NULL);
+  thread_tick ();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
