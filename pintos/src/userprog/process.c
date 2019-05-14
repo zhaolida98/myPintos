@@ -30,7 +30,8 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   tid_t tid;
-
+  char *method_name;//file name without args
+  char *save_rest;
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -38,8 +39,9 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  method_name = strtok_r(file_name, " ", &save_rest);
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (method_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -59,12 +61,15 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  printf("start_process: %s\n",file_name);
   success = load (file_name, &if_.eip, &if_.esp);
-
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
+  {
     thread_exit ();
+  }
+  
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -88,7 +93,10 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+  while(true)
+  {
+    thread_yield();
+  }
 }
 
 /* Free the current process's resources. */
@@ -195,7 +203,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, char* save_rest);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -215,6 +223,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  char* cmdline;
+  cmdline = palloc_get_page(0);
+  strlcpy (cmdline, file_name, PGSIZE);
+  char* cur_arg;
+  char* save_rest;
+  /* seperate filename again*/
+  cur_arg = strtok_r(cmdline, " ", &save_rest);
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -222,10 +237,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (cur_arg);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", cur_arg);
       goto done; 
     }
 
@@ -238,7 +253,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", cur_arg);
       goto done; 
     }
 
@@ -302,7 +317,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, file_name))
     goto done;
 
   /* Start address. */
@@ -311,6 +326,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   success = true;
 
  done:
+  palloc_free_page(cmdline);
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -427,7 +443,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char* cmdline2) 
 {
   uint8_t *kpage;
   bool success = false;
@@ -441,7 +457,49 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
-  return success;
+    // printf("if esp is %p\n", &if_.esp);
+    char *cur_arg, *save_rest;
+    cur_arg = strtok_r(cmdline2, " ", &save_rest);
+    char *args_addr[255];
+    char *args[255];
+    int arg_ptr = 0;
+    while(cur_arg != NULL)
+    {
+      // printf("current arg is %s\n*esp: %p\n", cur_arg, *esp);
+      args[arg_ptr++] = cur_arg;
+      cur_arg = strtok_r(NULL, " ", &save_rest);
+    }
+    for (int i = arg_ptr-1; i >= 0 ; i--)
+    {
+      // printf("current arg is %s\n*esp: %p\n", args[i], *esp);
+      *esp -= (strlen(args[i])+1);
+      strlcpy(*esp, args[i], strlen(args[i])+1);
+      args_addr[i] = *esp;
+    }
+    // align to 4 byte
+    while(((int)(*esp)) % 4 != 0)
+    {
+      *esp = *esp - 1;
+    } 
+
+    int *ptr = *esp - 4;
+    *ptr = 0;
+    ptr--;
+    for (int i = arg_ptr-1; i >= 0 ; i--)
+    {
+      *ptr = (int*)args_addr[i];
+      ptr--;
+    }
+    *ptr = ptr + 1;
+    ptr--;
+    *ptr = arg_ptr;
+    ptr--;
+    *ptr = 0;
+    *esp = ptr;
+    
+
+    hex_dump((uintptr_t)*esp, *esp, (int)PHYS_BASE - (int)(*esp), true);
+    return success;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
