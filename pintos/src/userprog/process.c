@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -42,6 +43,7 @@ process_execute (const char *file_name)
   method_name = strtok_r(file_name, " ", &save_rest);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (method_name, PRI_DEFAULT, start_process, fn_copy);
+  printf("finish thread_create\n");
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -63,6 +65,8 @@ start_process (void *file_name_)
   if_.eflags = FLAG_IF | FLAG_MBS;
   printf("start_process: %s\n",file_name);
   success = load (file_name, &if_.eip, &if_.esp);
+  printf("finishi loading\n");
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -93,10 +97,12 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(true)
+  // sema_down(&thread_current()->semaphore);
+  while(!(thread_current()->exit))
   {
-    thread_yield();
+  //   thread_yield();
   }
+  return -1;
 }
 
 /* Free the current process's resources. */
@@ -105,6 +111,10 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
+  //for file writing
+  printf("%s: exit(%d)\n",cur->name,cur->exit_error_code);
+  close_all_files(&thread_current()->files);
+  
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
