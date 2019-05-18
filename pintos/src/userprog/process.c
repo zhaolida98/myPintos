@@ -115,7 +115,11 @@ process_exit (void)
   uint32_t *pd;
   //for file writing
   printf("%s: exit(%d)\n",cur->name,cur->exit_error_code);
+
+  lock_acquire(&filesys_lock);
+  file_close(thread_current()->self);
   close_all_files(&thread_current()->files);
+  lock_release(&filesys_lock);
   
 
   /* Destroy the current process's page directory and switch back
@@ -341,6 +345,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   palloc_free_page(cmdline);
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+
+    thread_current()->self = file;
+
   return success;
 }
 

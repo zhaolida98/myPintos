@@ -98,6 +98,9 @@ struct thread
     bool exit;
     int exit_error_code;
     struct thread *parent;
+
+    struct file *self;
+
     //for file writing
     struct list files;
     int fd_count;
