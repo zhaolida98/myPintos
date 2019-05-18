@@ -41,6 +41,12 @@ void IClose(struct intr_frame*);
 // void IIsdir(struct intr_frame*); 
 // void IInuber(struct intr_frame*); 
 
+
+struct proc_file {
+	struct file* ptr;
+	int fd;
+	struct list_elem elem;
+};
 //TODO 看清f->eax 的面目，是否是指针，返回值是否需要处理
 void
 syscall_init (void) 
@@ -246,3 +252,21 @@ void IClose(struct intr_frame* f)
   // close(fd);  
   printf("syscall not implemented yet\n");
 }
+
+void close_all_files(struct list* files)
+{
+
+	struct list_elem *e;
+
+	while(!list_empty(files))
+	{
+		e = list_pop_front(files);
+
+		struct proc_file *f = list_entry (e, struct proc_file, elem);
+          
+	      	file_close(f->ptr);
+	      	list_remove(e);
+	      	free(f);
+
+
+	}
