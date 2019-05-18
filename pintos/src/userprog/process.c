@@ -45,7 +45,7 @@ process_execute (const char *file_name)
   method_name = strtok_r(file_name, " ", &save_rest);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (method_name, PRI_DEFAULT, start_process, fn_copy);
-  printf("finish thread_create\n");
+  // printf("finish thread_create\n");
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -65,9 +65,9 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  printf("start_process: %s\n",file_name);
+  // printf("start_process: %s\n",file_name);
   success = load (file_name, &if_.eip, &if_.esp);
-  printf("finishi loading\n");
+  // printf("finishi loading\n");
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -115,6 +115,8 @@ process_exit (void)
   uint32_t *pd;
   //for file writing
   printf("%s: exit(%d)\n",cur->name,cur->exit_error_code);
+
+  
   close_all_files(&thread_current()->files);
   
 

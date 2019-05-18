@@ -40,6 +40,7 @@ void IClose(struct intr_frame*);
 // void IReaddir(struct intr_frame*); 
 // void IIsdir(struct intr_frame*); 
 // void IInuber(struct intr_frame*); 
+struct proc_file* list_search(struct list* files, int fd);
 
 
 struct proc_file {
@@ -197,14 +198,23 @@ void IRead(struct intr_frame* f)
 void IWrite(struct intr_frame *f)
 {
 
-  int *fd = (int*)f->esp + 1;
+  int fd = *((int*)f->esp + 1);
   void* buffer = (void*)(*((int*)f->esp + 2));
   unsigned size = *((unsigned*)f->esp + 3);
- 		if(*(fd+4)==1)
+ 		if(fd==1)
 		{
-			putbuf(*(fd+5),*(fd+6));
+			putbuf( buffer,size);
+      f->eax = (size);
 		}
- 
+    else
+		{
+			struct proc_file* fptr = list_search(&thread_current()->files, fd);
+			if(fptr==NULL)
+				f->eax=-1;
+			else
+				f->eax = file_write_at (fptr->ptr, buffer, size ,0);
+		}
+    
   // if(fd == 1)//1 == STDOUTPUT
   // {
   //   putbuf(buffer, size);
@@ -267,7 +277,19 @@ void close_all_files(struct list* files)
 	      	file_close(f->ptr);
 	      	list_remove(e);
 	      	free(f);
-
-
 	}
+}
+struct proc_file* list_search(struct list* files, int fd)
+{
+
+ 	struct list_elem *e;
+
+       for (e = list_begin (files); e != list_end (files);
+           e = list_next (e))
+        {
+          struct proc_file *f = list_entry (e, struct proc_file, elem);
+          if(f->fd == fd)
+          	return f;
+        }
+   return NULL;
 }
