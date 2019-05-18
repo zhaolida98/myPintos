@@ -116,7 +116,7 @@ process_exit (void)
   //for file writing
   printf("%s: exit(%d)\n",cur->name,cur->exit_error_code);
 
-  
+
   close_all_files(&thread_current()->files);
   
 
@@ -512,7 +512,7 @@ setup_stack (void **esp, char* cmdline2)
     *esp = ptr;
     
 
-    hex_dump((uintptr_t)*esp, *esp, (int)PHYS_BASE - (int)(*esp), true);
+    // hex_dump((uintptr_t)*esp, *esp, (int)PHYS_BASE - (int)(*esp), true);
     return success;
 }
 

@@ -70,6 +70,7 @@ syscall_init (void)
   syscall_list[SYS_SEEK] = ISeek;
   syscall_list[SYS_TELL] = ITell;
   syscall_list[SYS_CLOSE] = IClose;
+  syscall_list[SYS_HALT] = IHalt;
   /*project 3 or 4*/
   // syscall_list[SYS_MMAP] = IMmap;
   // syscall_list[SYS_MUNMAP] = IMunmap;
@@ -84,7 +85,7 @@ syscall_init (void)
 bool is_ptr_valid(void *esp)
 {
   // hex_dump((uintptr_t)esp, esp, (int)PHYS_BASE - (int)(esp), 1);
-  if (((int)esp) < PHYS_BASE)
+  if (((int)esp) > PHYS_BASE)
   {
     thread_current()->exit_error_code = -1;
     thread_current()->parent->exit = 1;
@@ -162,37 +163,77 @@ void ICreate(struct intr_frame* f)
   char *file = (char*)(*((int*)f->esp + 1));
   unsigned initial_size = *((unsigned*)f->esp + 2);
   // f->eax = create(file, initial_size);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IRemove(struct intr_frame* f)
 {
   char *file = (char*)(*((int*)f->esp + 1));
   // f->eax = remove(file);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IOpen(struct intr_frame* f)
 {
+
+  acquire_filesys_lock();
   char *file = (char*)(*((int*)f->esp + 1));
+  struct file* fptr = filesys_open(file);
+  release_filesys_lock();
+		if(fptr==NULL)
+			f->eax = -1;
+		else
+		{
+			struct proc_file *pfile = malloc(sizeof(*pfile));
+			pfile->ptr = fptr;
+			pfile->fd = thread_current()->fd_count;
+			thread_current()->fd_count++;
+			list_push_back (&thread_current()->files, &pfile->elem);
+			f->eax = pfile->fd;
+
+		}
+
   // f->eax = open(file);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IFilesize(struct intr_frame* f)
 {
   int fd = *((int*)f->esp + 1);
+  acquire_filesys_lock();
+  f->eax = file_length (list_search(&thread_current()->files, fd)->ptr);
+  release_filesys_lock();
   // f->eax = filesize(fd);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IRead(struct intr_frame* f)
 {
   int fd = *((int*)f->esp + 1);
-  void* buffer = (void*)(*((int*)f->esp + 2));
+  uint8_t* buffer = (uint8_t*)(*((int*)f->esp + 2));
   unsigned size = *((unsigned*)f->esp + 3);
+
+  		if(fd==0)
+		{
+			int i;
+			for(i=0;i<size;i++)
+				buffer[i] = input_getc();
+			f->eax = size;
+		}
+		else
+		{
+			struct proc_file* fptr = list_search(&thread_current()->files, fd);
+			if(fptr==NULL)
+				f->eax=-1;
+			else
+			{
+				acquire_filesys_lock();
+				f->eax = file_read (fptr->ptr, buffer, size);
+				release_filesys_lock();
+			}
+		}
   // f->eax = read(fd, buffer, size); 
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IWrite(struct intr_frame *f)
@@ -212,7 +253,10 @@ void IWrite(struct intr_frame *f)
 			if(fptr==NULL)
 				f->eax=-1;
 			else
+        // acquire_filesys_lock();
 				f->eax = file_write_at (fptr->ptr, buffer, size ,0);
+        // release_filesys_lock();
+
 		}
     
   // if(fd == 1)//1 == STDOUTPUT
@@ -247,20 +291,52 @@ void ISeek(struct intr_frame* f)
 {
   int fd = *((int*)f->esp + 1);
   unsigned position = *((unsigned*)f->esp + 2);
+    acquire_filesys_lock();
+    // p+4???
+		// file_seek(list_search(&thread_current()->files, *(p+4))->ptr,fd);
+		file_seek(list_search(&thread_current()->files, fd)->ptr,fd);
+		release_filesys_lock();
   // seek(fd, position);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 void ITell(struct intr_frame* f)
 {
   int fd = *((int*)f->esp + 1);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
   // f->eax = tell(fd);
+    acquire_filesys_lock();
+		f->eax = file_tell(list_search(&thread_current()->files, fd)->ptr);
+		release_filesys_lock();
 } 
 void IClose(struct intr_frame* f)
 {
   int fd = *((int*)f->esp + 1);
+  	// 	acquire_filesys_lock();
+		// close_file(&thread_current()->files,fd);
+		// release_filesys_lock();
   // close(fd);  
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
+}
+
+void close_file(struct list* files, int fd)
+{
+
+	struct list_elem *e;
+
+	struct proc_file *f;
+
+      for (e = list_begin (files); e != list_end (files);
+           e = list_next (e))
+        {
+          f = list_entry (e, struct proc_file, elem);
+          if(f->fd == fd)
+          {
+          	file_close(f->ptr);
+          	list_remove(e);
+          }
+        }
+
+    free(f);
 }
 
 void close_all_files(struct list* files)

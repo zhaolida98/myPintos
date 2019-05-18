@@ -71,6 +71,9 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+struct lock filesys_lock;
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -98,6 +101,8 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  lock_init(&filesys_lock);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -597,3 +602,14 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+
+void acquire_filesys_lock()
+{
+  lock_acquire(&filesys_lock);
+}
+
+void release_filesys_lock()
+{
+  lock_release(&filesys_lock);
+}
