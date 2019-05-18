@@ -270,3 +270,4 @@ void close_all_files(struct list* files)
 
 
 	}
+}
