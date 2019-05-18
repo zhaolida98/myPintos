@@ -128,15 +128,17 @@ void IHalt(struct intr_frame* f UNUSED)
 void IExit(struct intr_frame* f)
 {
   int status = *((int*)f->esp + 1);
+  thread_current()->exit_error_code=status;
   thread_current()->parent->exit = 1;
   thread_exit();
   // exit(status);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IExec(struct intr_frame* f)
 {
   char *file = (char*)(*((int*)f->esp + 1));
+
   // f->eax = exec(file);
   printf("syscall not implemented yet\n");
 }
@@ -189,30 +191,35 @@ void IRead(struct intr_frame* f)
 void IWrite(struct intr_frame *f)
 {
 
-  int fd = *((int*)f->esp + 1);
+  int *fd = (int*)f->esp + 1;
   void* buffer = (void*)(*((int*)f->esp + 2));
   unsigned size = *((unsigned*)f->esp + 3);
-  if(fd == 1)//1 == STDOUTPUT
-  {
-    putbuf(buffer, size);
-    f->eax = 0;
-  }
-  else
-  {
-  printf("write file not implemented yet\n");
-    /*
-    struct proc_file
-    struct file_node *fn;//=?? TODO  获取文件
-    if(fn==NULL)
-    {
-      f->eax = 0;
-      return;
-    }
-    f->eax = file_write(fn->f, buffer, size);
-  }
-  */
+ 		if(*(fd+4)==1)
+		{
+			putbuf(*(fd+5),*(fd+6));
+		}
+ 
+  // if(fd == 1)//1 == STDOUTPUT
+  // {
+  //   putbuf(buffer, size);
+  //   f->eax = 0;
+  // }
+  // else
+  // {
+  // printf("write file not implemented yet\n");
+  //   /*
+  //   struct proc_file
+  //   struct file_node *fn;//=?? TODO  获取文件
+  //   if(fn==NULL)
+  //   {
+  //     f->eax = 0;
+  //     return;
+  //   }
+  //   f->eax = file_write(fn->f, buffer, size);
+  // }
+  // */
 
-  }
+  // }
   // int * p = f->esp;
   // if(*(p+5)==1)
   // {
