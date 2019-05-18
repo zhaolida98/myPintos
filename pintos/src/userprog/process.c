@@ -105,6 +105,37 @@ process_wait (tid_t child_tid UNUSED)
   //   thread_yield();
   }
   return -1;
+
+  struct list_elem *e;
+
+  struct child *ch=NULL;
+  struct list_elem *e1=NULL;
+
+  for (e = list_begin (&thread_current()->child_proc); e != list_end (&thread_current()->child_proc);
+           e = list_next (e))
+        {
+          struct child *f = list_entry (e, struct child, elem);
+          if(f->tid == child_tid)
+          {
+            ch = f;
+            e1 = e;
+          }
+        }
+
+
+  if(!ch || !e1)
+    return -1;
+
+  thread_current()->waitingon = ch->tid;
+    
+  if(!ch->used)
+    sema_down(&thread_current()->child_lock);
+
+  int temp = ch->exit_error;
+  list_remove(e1);
+  
+  return temp;
+
 }
 
 /* Free the current process's resources. */

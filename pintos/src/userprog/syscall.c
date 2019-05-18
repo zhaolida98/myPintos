@@ -8,6 +8,10 @@
 #include "pagedir.h"
 #include "lib/syscall-nr.h"
 
+#include "list.h"
+#include "process.h"
+
+
 #define ALLCALL 20//there are 20 in total
 
 static void syscall_handler (struct intr_frame *);
@@ -85,7 +89,7 @@ syscall_init (void)
 bool is_ptr_valid(void *esp)
 {
   // hex_dump((uintptr_t)esp, esp, (int)PHYS_BASE - (int)(esp), 1);
-  if (((int)esp) > PHYS_BASE)
+  if (esp >(void*)PHYS_BASE|| esp<(void *)0x08048000)
   {
     thread_current()->exit_error_code = -1;
     thread_current()->parent->exit = 1;
@@ -107,11 +111,13 @@ syscall_handler (struct intr_frame *f)
 {
   // hex_dump((uintptr_t)f->esp, f->esp, (int)PHYS_BASE - (int)(f->esp), 1);
 
-  int sys_code = *(int*)f->esp;
+  // int sys_code = *(int*)f->esp;
   if(!is_ptr_valid(f->esp))
   {
     killthread(-1);
   }
+  int sys_code=*(int *)f->esp;
+
   if(sys_code >= ALLCALL || sys_code < 0)
   {
     printf("No such syscall!\n");
@@ -136,9 +142,15 @@ void IHalt(struct intr_frame* f UNUSED)
 void IExit(struct intr_frame* f)
 {
   int status = *((int*)f->esp + 1);
+  if (status<0 && status !=-1)
+  {
+    status=-1;
+  }
+  
   thread_current()->exit_error_code=status;
   thread_current()->parent->exit = 1;
   thread_exit();
+  // exit_proc(status);
   // exit(status);
   // printf("syscall not implemented yet\n");
 }
@@ -147,21 +159,30 @@ void IExec(struct intr_frame* f)
 {
   char *file = (char*)(*((int*)f->esp + 1));
 
+  f->eax = exec_proc(file);
+
+
   // f->eax = exec(file);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void IWait(struct intr_frame* f)
 {
-  // pid_t pid = *((int*)f->esp + 1);
+  tid_t pid = *((int*)f->esp + 1);
+  f->eax = process_wait(pid);
+
   // f->eax = wait(pid);
-  printf("syscall not implemented yet\n");
+  // printf("syscall not implemented yet\n");
 }
 
 void ICreate(struct intr_frame* f)
 {
   char *file = (char*)(*((int*)f->esp + 1));
   unsigned initial_size = *((unsigned*)f->esp + 2);
+
+  		acquire_filesys_lock();
+		f->eax = filesys_create(file,initial_size);
+		release_filesys_lock();
   // f->eax = create(file, initial_size);
   // printf("syscall not implemented yet\n");
 }
@@ -169,6 +190,12 @@ void ICreate(struct intr_frame* f)
 void IRemove(struct intr_frame* f)
 {
   char *file = (char*)(*((int*)f->esp + 1));
+  		acquire_filesys_lock();
+		if(filesys_remove(file)==NULL)
+			f->eax = false;
+		else
+			f->eax = true;
+		release_filesys_lock();
   // f->eax = remove(file);
   // printf("syscall not implemented yet\n");
 }
@@ -368,4 +395,54 @@ struct proc_file* list_search(struct list* files, int fd)
           	return f;
         }
    return NULL;
+}
+
+
+void exit_proc(int status)
+{
+	//printf("Exit : %s %d %d\n",thread_current()->name, thread_current()->tid, status);
+	struct list_elem *e;
+
+      for (e = list_begin (&thread_current()->parent->child_proc); e != list_end (&thread_current()->parent->child_proc);
+           e = list_next (e))
+        {
+          struct child *f = list_entry (e, struct child, elem);
+          if(f->tid == thread_current()->tid)
+          {
+          	f->used = true;
+          	f->exit_error = status;
+          }
+        }
+
+
+	thread_current()->exit_error_code = status;
+
+	if(thread_current()->parent->waitingon == thread_current()->tid)
+		sema_up(&thread_current()->parent->child_lock);
+
+	thread_exit();
+}
+
+int exec_proc(char *file_name)
+{
+	acquire_filesys_lock();
+	char * fn_cp = malloc (strlen(file_name)+1);
+	  strlcpy(fn_cp, file_name, strlen(file_name)+1);
+	  
+	  char * save_ptr;
+	  fn_cp = strtok_r(fn_cp," ",&save_ptr);
+
+	 struct file* f = filesys_open (fn_cp);
+
+	  if(f==NULL)
+	  {
+	  	release_filesys_lock();
+	  	return -1;
+	  }
+	  else
+	  {
+	  	file_close(f);
+	  	release_filesys_lock();
+	  	return process_execute(file_name);
+	  }
 }

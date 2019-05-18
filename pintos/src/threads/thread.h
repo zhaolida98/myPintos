@@ -97,7 +97,13 @@ struct thread
     //process_exit 临时变量
     bool exit;
     int exit_error_code;
+    struct list child_proc;
     struct thread *parent;
+
+    int waitingon;
+    struct semaphore child_lock;
+
+
     //for file writing
     struct list files;
     int fd_count;
@@ -110,6 +116,13 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
     int64_t block_ticks;
     struct semaphore semaphore;
+
+      struct child {
+      int tid;
+      struct list_elem elem;
+      int exit_error;
+      bool used;
+    };
   };
 
 /* If false (default), use round-robin scheduler.
