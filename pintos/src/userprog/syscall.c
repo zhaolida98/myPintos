@@ -104,8 +104,13 @@ bool is_ptr_valid(void *esp)
 
 void killthread(int status)
 {
+  if (status<0 && status !=-1)
+  {
+    status=-1;
+  }
   struct thread *t = thread_current();
   t->exit_error_code = status;
+  t->parent->exit=1;
   thread_exit();
 }
 // // TODO is_ptr_valid 方法十分简陋，未考虑完全
@@ -145,14 +150,15 @@ void IHalt(struct intr_frame* f UNUSED)
 void IExit(struct intr_frame* f)
 {
   int status = *((int*)f->esp + 1);
-  if (status<0 && status !=-1)
-  {
-    status=-1;
-  }
+  // if (status<0 && status !=-1)
+  // {
+  //   status=-1;
+  // }
   
-  thread_current()->exit_error_code=status;
-  thread_current()->parent->exit = 1;
-  thread_exit();
+  // thread_current()->exit_error_code=status;
+  // thread_current()->parent->exit = 1;
+  // thread_exit();
+  killthread(status);
 
 
     int * p = f->esp;
@@ -301,33 +307,7 @@ void IWrite(struct intr_frame *f)
 
 		}
     
-  // if(fd == 1)//1 == STDOUTPUT
-  // {
-  //   putbuf(buffer, size);
-  //   f->eax = 0;
-  // }
-  // else
-  // {
-  // printf("write file not implemented yet\n");
-  //   /*
-  //   struct proc_file
-  //   struct file_node *fn;//=?? TODO  获取文件
-  //   if(fn==NULL)
-  //   {
-  //     f->eax = 0;
-  //     return;
-  //   }
-  //   f->eax = file_write(fn->f, buffer, size);
-  // }
-  // */
 
-  // }
-  // int * p = f->esp;
-  // if(*(p+5)==1)
-  // {
-  //   putbuf(*(p+6),*(p+7));
-  // }
-  // printf("write syscall finished\n");
 }
 void ISeek(struct intr_frame* f)
 {

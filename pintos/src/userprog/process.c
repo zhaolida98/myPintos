@@ -24,6 +24,8 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+extern struct list all_list;
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -40,12 +42,17 @@ process_execute (const char *file_name)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
 
-  method_name = strtok_r(file_name, " ", &save_rest);
+  strlcpy (fn_copy, file_name, PGSIZE);
+  method_name = malloc(strlen(file_name)+1);
+  strlcpy (method_name, file_name, strlen(file_name)+1);
+  method_name = strtok_r(method_name, " ", &save_rest);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (method_name, PRI_DEFAULT, start_process, fn_copy);
   // printf("finish thread_create\n");
+  free(method_name);
+
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
