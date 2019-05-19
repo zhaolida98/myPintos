@@ -49,6 +49,7 @@ process_execute (const char *file_name)
   method_name = strtok_r(method_name, " ", &save_rest);
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (method_name, PRI_DEFAULT, start_process, fn_copy);
+  // printf("%d")
   // printf("finish thread_create\n");
   free(method_name);
 
@@ -122,11 +123,15 @@ process_wait (tid_t child_tid)
 {
   // sema_down(&thread_current()->semaphore);
   while(!(thread_current()->exit))
-  {
+   {
   //   thread_yield();
   }
   return -1;
-
+//   if (child_tid==3)
+//   {
+// child_tid=4;
+//   }
+  
   struct list_elem *e;
 
   struct child *ch=NULL;
@@ -148,9 +153,15 @@ process_wait (tid_t child_tid)
     return -1;
 
   thread_current()->waitingon = ch->tid;
+  // printf("%d\n",thread_current()->waitingon);
     
-  if(!ch->used)
+  if(!ch->used){
+  // printf("%d\n",5);
+  // printf("%d\n",thread_current()->waitingon);
+
     sema_down(&thread_current()->child_lock);
+
+  }
 
   int temp = ch->exit_error;
   list_remove(e1);

@@ -184,6 +184,7 @@ void IWait(struct intr_frame* f)
 {
   tid_t pid = *((int*)f->esp + 1);
   f->eax = process_wait(pid);
+  
 
   // f->eax = wait(pid);
   // printf("syscall not implemented yet\n");
@@ -223,9 +224,13 @@ void IRemove(struct intr_frame* f)
 
 void IOpen(struct intr_frame* f)
 {
-
-  acquire_filesys_lock();
   char *file = (char*)(*((int*)f->esp + 1));
+        if (file==NULL)
+      {
+        		// exit_proc(-1);
+            killthread(-1);
+      }
+  acquire_filesys_lock();
   struct file* fptr = filesys_open(file);
   release_filesys_lock();
 		if(fptr==NULL)

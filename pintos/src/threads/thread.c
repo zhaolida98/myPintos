@@ -305,19 +305,14 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-    while(!list_empty(&thread_current()->child_proc)){
-      struct proc_file *f = list_entry (list_pop_front(&thread_current()->child_proc), struct child, elem);
-      free(f);
-    }
+    // while(!list_empty(&thread_current()->child_proc)){
+    //   struct proc_file *f = list_entry (list_pop_front(&thread_current()->child_proc), struct child, elem);
+    //   free(f);
+    // }
 
   intr_disable ();
-  // printf("c1 %d\n",thread_current()->status);
   list_remove (&thread_current()->allelem);
-  // printf("c2 %s\n",thread_current()->status);
-
   thread_current ()->status = THREAD_DYING;
-  // printf("c3 %s\n",thread_current()->status);
-
   schedule ();
   NOT_REACHED ();
 }
