@@ -17,6 +17,9 @@
 static void syscall_handler (struct intr_frame *);
 bool is_ptr_valid(void *esp);
 void killthread(int status);
+void* check_addr(const void*);
+void exit_proc(int status);
+
 typedef void (*SYSCALLS)(struct intr_frame*);
 SYSCALLS syscall_list[ALLCALL]; //there are 20 in total
 //there are 20 in total
@@ -91,9 +94,9 @@ bool is_ptr_valid(void *esp)
   // hex_dump((uintptr_t)esp, esp, (int)PHYS_BASE - (int)(esp), 1);
   if (esp >(void*)PHYS_BASE|| esp<(void *)0x08048000)
   {
-    thread_current()->exit_error_code = -1;
-    thread_current()->parent->exit = 1;
-    thread_exit();
+    // thread_current()->exit_error_code = -1;
+    // thread_current()->parent->exit = 1;
+    // thread_exit();
     return false;
   }
   return true;
@@ -102,7 +105,7 @@ bool is_ptr_valid(void *esp)
 void killthread(int status)
 {
   struct thread *t = thread_current();
-  t->status = status;
+  t->exit_error_code = status;
   thread_exit();
 }
 // // TODO is_ptr_valid 方法十分简陋，未考虑完全
@@ -150,6 +153,11 @@ void IExit(struct intr_frame* f)
   thread_current()->exit_error_code=status;
   thread_current()->parent->exit = 1;
   thread_exit();
+
+
+    int * p = f->esp;
+  		check_addr(p+1);
+		exit_proc(*(p+1));
   // exit_proc(status);
   // exit(status);
   // printf("syscall not implemented yet\n");
@@ -179,8 +187,15 @@ void ICreate(struct intr_frame* f)
 {
   char *file = (char*)(*((int*)f->esp + 1));
   unsigned initial_size = *((unsigned*)f->esp + 2);
+      if (file==NULL)
+      {
 
+        		// exit_proc(-1);
+            killthread(-1);
+      }
   		acquire_filesys_lock();
+
+      
 		f->eax = filesys_create(file,initial_size);
 		release_filesys_lock();
   // f->eax = create(file, initial_size);
@@ -345,6 +360,91 @@ void IClose(struct intr_frame* f)
   // printf("syscall not implemented yet\n");
 }
 
+
+int exec_proc(char *file_name)
+{
+	acquire_filesys_lock();
+	char * fn_cp = malloc (strlen(file_name)+1);
+	  strlcpy(fn_cp, file_name, strlen(file_name)+1);
+	  
+	  char * save_ptr;
+	  fn_cp = strtok_r(fn_cp," ",&save_ptr);
+
+	 struct file* f = filesys_open (fn_cp);
+
+	  if(f==NULL)
+	  {
+	  	release_filesys_lock();
+	  	return -1;
+	  }
+	  else
+	  {
+	  	file_close(f);
+	  	release_filesys_lock();
+	  	return process_execute(file_name);
+	  }
+}
+
+
+void exit_proc(int status)
+{
+	//printf("Exit : %s %d %d\n",thread_current()->name, thread_current()->tid, status);
+	struct list_elem *e;
+
+      for (e = list_begin (&thread_current()->parent->child_proc); e != list_end (&thread_current()->parent->child_proc);
+           e = list_next (e))
+        {
+          struct child *f = list_entry (e, struct child, elem);
+          if(f->tid == thread_current()->tid)
+          {
+          	f->used = true;
+          	f->exit_error = status;
+          }
+        }
+
+
+	thread_current()->exit_error_code = status;
+
+	if(thread_current()->parent->waitingon == thread_current()->tid)
+		sema_up(&thread_current()->parent->child_lock);
+
+	thread_exit();
+}
+
+
+
+
+void* check_addr(const void *vaddr)
+{
+	if (!is_user_vaddr(vaddr))
+	{
+		exit_proc(-1);
+		return 0;
+	}
+	void *ptr = pagedir_get_page(thread_current()->pagedir, vaddr);
+	if (!ptr)
+	{
+		exit_proc(-1);
+		return 0;
+	}
+	return ptr;
+}
+
+struct proc_file* list_search(struct list* files, int fd)
+{
+
+ 	struct list_elem *e;
+
+       for (e = list_begin (files); e != list_end (files);
+           e = list_next (e))
+        {
+          struct proc_file *f = list_entry (e, struct proc_file, elem);
+          if(f->fd == fd)
+          	return f;
+        }
+   return NULL;
+}
+
 void close_file(struct list* files, int fd)
 {
 
@@ -381,68 +481,4 @@ void close_all_files(struct list* files)
 	      	list_remove(e);
 	      	free(f);
 	}
-}
-struct proc_file* list_search(struct list* files, int fd)
-{
-
- 	struct list_elem *e;
-
-       for (e = list_begin (files); e != list_end (files);
-           e = list_next (e))
-        {
-          struct proc_file *f = list_entry (e, struct proc_file, elem);
-          if(f->fd == fd)
-          	return f;
-        }
-   return NULL;
-}
-
-
-void exit_proc(int status)
-{
-	//printf("Exit : %s %d %d\n",thread_current()->name, thread_current()->tid, status);
-	struct list_elem *e;
-
-      for (e = list_begin (&thread_current()->parent->child_proc); e != list_end (&thread_current()->parent->child_proc);
-           e = list_next (e))
-        {
-          struct child *f = list_entry (e, struct child, elem);
-          if(f->tid == thread_current()->tid)
-          {
-          	f->used = true;
-          	f->exit_error = status;
-          }
-        }
-
-
-	thread_current()->exit_error_code = status;
-
-	if(thread_current()->parent->waitingon == thread_current()->tid)
-		sema_up(&thread_current()->parent->child_lock);
-
-	thread_exit();
-}
-
-int exec_proc(char *file_name)
-{
-	acquire_filesys_lock();
-	char * fn_cp = malloc (strlen(file_name)+1);
-	  strlcpy(fn_cp, file_name, strlen(file_name)+1);
-	  
-	  char * save_ptr;
-	  fn_cp = strtok_r(fn_cp," ",&save_ptr);
-
-	 struct file* f = filesys_open (fn_cp);
-
-	  if(f==NULL)
-	  {
-	  	release_filesys_lock();
-	  	return -1;
-	  }
-	  else
-	  {
-	  	file_close(f);
-	  	release_filesys_lock();
-	  	return process_execute(file_name);
-	  }
 }

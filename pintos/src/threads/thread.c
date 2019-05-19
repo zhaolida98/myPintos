@@ -95,14 +95,14 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  
+  lock_init(&filesys_lock);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-
-  lock_init(&filesys_lock);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -177,6 +177,8 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
 
+  enum intr_level old_level;
+
   ASSERT (function != NULL);
 
   /* Allocate thread. */
@@ -187,7 +189,15 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  
+  struct child* c = malloc(sizeof(*c));
+  c->tid = tid;
+  c->exit_error = t->exit_error_code;
+  c->used = false;
+  list_push_back (&running_thread()->child_proc, &c->elem);
 
+  old_level = intr_disable ();
+  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -202,6 +212,7 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
+  intr_set_level (old_level);
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -294,9 +305,19 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+    while(!list_empty(&thread_current()->child_proc)){
+      struct proc_file *f = list_entry (list_pop_front(&thread_current()->child_proc), struct child, elem);
+      free(f);
+    }
+
   intr_disable ();
+  // printf("c1 %d\n",thread_current()->status);
   list_remove (&thread_current()->allelem);
+  // printf("c2 %s\n",thread_current()->status);
+
   thread_current ()->status = THREAD_DYING;
+  // printf("c3 %s\n",thread_current()->status);
+
   schedule ();
   NOT_REACHED ();
 }
@@ -468,6 +489,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init (&t->child_proc);
+
   t->block_ticks = 0;
   //临时变量
   t->exit = 0;
@@ -475,6 +498,13 @@ init_thread (struct thread *t, const char *name, int priority)
   //for file write
   list_init (&t->files);
   t->fd_count = 2;
+
+  t->exit_error_code = -100;
+  
+  t->waitingon=0;
+  t->self=NULL;
+  sema_init(&t->child_lock,0);
+
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

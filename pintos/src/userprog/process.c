@@ -48,6 +48,13 @@ process_execute (const char *file_name)
   // printf("finish thread_create\n");
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+
+  sema_down(&thread_current()->child_lock);
+
+    if(!thread_current()->success)
+    return -1;
+
+
   return tid;
 }
 
@@ -73,8 +80,15 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
   {
+        thread_current()->parent->success=false;
+    sema_up(&thread_current()->parent->child_lock);
     thread_exit ();
+  }else
+  {
+        thread_current()->parent->success=true;
+    sema_up(&thread_current()->parent->child_lock);
   }
+  
   
 
   /* Start the user process by simulating a return from an
@@ -97,7 +111,7 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
   // sema_down(&thread_current()->semaphore);
   while(!(thread_current()->exit))
@@ -147,9 +161,15 @@ process_exit (void)
   //for file writing
   printf("%s: exit(%d)\n",cur->name,cur->exit_error_code);
 
+    // if(cur->exit_error_code==-100)
+    //   exit_proc(-1);
+
+  acquire_filesys_lock();
+  file_close(thread_current()->self);
 
   close_all_files(&thread_current()->files);
-  
+  release_filesys_lock();
+
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -275,6 +295,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   char* save_rest;
   /* seperate filename again*/
   cur_arg = strtok_r(cmdline, " ", &save_rest);
+
+  acquire_filesys_lock();
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -370,10 +393,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
+  file_deny_write(file);
+
+  thread_current()->self = file;
+
+
  done:
   palloc_free_page(cmdline);
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  // ??? should it close?
+  // file_close (file);
+  release_filesys_lock();
   return success;
 }
 
