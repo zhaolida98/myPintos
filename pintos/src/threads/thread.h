@@ -4,7 +4,13 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+<<<<<<< HEAD
 #include <threads/synch.h>
+=======
+#include "fixed_point.h"
+#include "synch.h"
+// #include <threads/synch.h>
+>>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -100,6 +106,22 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+<<<<<<< HEAD
+=======
+    //process_exit 临时变量
+    bool exit;
+    int exit_error_code;
+    struct list child_proc;
+    struct thread *parent;
+
+    int waitingon;
+    struct semaphore child_lock;
+    struct file *self;
+    
+    bool success;
+
+
+>>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -108,6 +130,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+<<<<<<< HEAD
 
 
     struct semaphore exec_sema; // semaphore for child thread load
@@ -121,6 +144,19 @@ struct thread
     struct file * executable; // the thread executable file 
     int max_fd; // the file descriptor used by the thread
   };
+=======
+    int64_t block_ticks;
+    struct semaphore semaphore;
+
+  };
+
+      struct child {
+      int tid;
+      struct list_elem elem;
+      int exit_error;
+      bool used;
+    };
+>>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
 
 
