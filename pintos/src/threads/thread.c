@@ -29,7 +29,7 @@ static struct list ready_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
- struct list all_list;
+static struct list all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -99,14 +99,13 @@ thread_init (void)
   lock_init(&file_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  
-  lock_init(&filesys_lock);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -181,8 +180,6 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
 
-  enum intr_level old_level;
-
   ASSERT (function != NULL);
 
   /* Allocate thread. */
@@ -199,8 +196,6 @@ thread_create (const char *name, int priority,
   // add the child thread struct to the childs of the current thread 
   list_push_back (&thread_current()->childs, &(ct->child_thread_elem));
 
-  old_level = intr_disable ();
-  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -215,7 +210,6 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-  intr_set_level (old_level);
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -527,13 +521,6 @@ init_thread (struct thread *t, const char *name, int priority)
 
   if(t == initial_thread) t->parent = NULL;
   else t->parent = thread_current();
-
-  t->exit_error_code = -100;
-  
-  t->waitingon=0;
-  t->self=NULL;
-  sema_init(&t->child_lock,0);
-
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

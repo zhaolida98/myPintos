@@ -23,8 +23,6 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-extern struct list all_list;
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -36,7 +34,6 @@ process_execute (const char *file_name)
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-<<<<<<< HEAD
 
   int len = strlen(file_name);
 
@@ -58,32 +55,6 @@ process_execute (const char *file_name)
   // the parent thread block for thread loading
   sema_down(&thread_current()->exec_sema);
   if (!thread_current()->exec_status) return TID_ERROR;
-=======
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-
-  strlcpy (fn_copy, file_name, PGSIZE);
-  method_name = malloc(strlen(file_name)+1);
-  strlcpy (method_name, file_name, strlen(file_name)+1);
-  method_name = strtok_r(method_name, " ", &save_rest);
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (method_name, PRI_DEFAULT, start_process, fn_copy);
-  // printf("%d")
-  // printf("finish thread_create\n");
-  free(method_name);
-
-
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-
-  sema_down(&thread_current()->child_lock);
-
-    if(!thread_current()->success)
-    return -1;
-
-
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
   return tid;
 }
 
@@ -104,7 +75,6 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-<<<<<<< HEAD
   // token out the argument
   char *token, *save_ptr;
   token = strtok_r (file_name, " ", &save_ptr);
@@ -155,26 +125,6 @@ start_process (void *file_name_)
   memcpy(if_.esp, &zero, sizeof(int));
   // up the semaphore
   sema_up(&thread_current()->parent->exec_sema);
-=======
-  // printf("start_process: %s\n",file_name);
-  success = load (file_name, &if_.eip, &if_.esp);
-  // printf("finishi loading\n");
-
-  /* If load failed, quit. */
-  palloc_free_page (file_name);
-  if (!success) 
-  {
-        thread_current()->parent->success=false;
-    sema_up(&thread_current()->parent->child_lock);
-    thread_exit ();
-  }else
-  {
-        thread_current()->parent->success=true;
-    sema_up(&thread_current()->parent->child_lock);
-  }
-  
-  
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -196,62 +146,10 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-<<<<<<< HEAD
 process_wait (tid_t child_tid UNUSED)
 {
   int status = child_thread_wait(child_tid);
   return status;
-=======
-process_wait (tid_t child_tid) 
-{
-  // sema_down(&thread_current()->semaphore);
-  while(!(thread_current()->exit))
-   {
-  //   thread_yield();
-  }
-  return -1;
-//   if (child_tid==3)
-//   {
-// child_tid=4;
-//   }
-  
-  struct list_elem *e;
-
-  struct child *ch=NULL;
-  struct list_elem *e1=NULL;
-
-  for (e = list_begin (&thread_current()->child_proc); e != list_end (&thread_current()->child_proc);
-           e = list_next (e))
-        {
-          struct child *f = list_entry (e, struct child, elem);
-          if(f->tid == child_tid)
-          {
-            ch = f;
-            e1 = e;
-          }
-        }
-
-
-  if(!ch || !e1)
-    return -1;
-
-  thread_current()->waitingon = ch->tid;
-  // printf("%d\n",thread_current()->waitingon);
-    
-  if(!ch->used){
-  // printf("%d\n",5);
-  // printf("%d\n",thread_current()->waitingon);
-
-    sema_down(&thread_current()->child_lock);
-
-  }
-
-  int temp = ch->exit_error;
-  list_remove(e1);
-  
-  return temp;
-
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 }
 
 /* Free the current process's resources. */
@@ -260,21 +158,6 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-<<<<<<< HEAD
-=======
-  //for file writing
-  printf("%s: exit(%d)\n",cur->name,cur->exit_error_code);
-
-    // if(cur->exit_error_code==-100)
-    //   exit_proc(-1);
-
-  acquire_filesys_lock();
-  file_close(thread_current()->self);
-
-  close_all_files(&thread_current()->files);
-  release_filesys_lock();
-
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -394,19 +277,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
-<<<<<<< HEAD
-=======
-  char* cmdline;
-  cmdline = palloc_get_page(0);
-  strlcpy (cmdline, file_name, PGSIZE);
-  char* cur_arg;
-  char* save_rest;
-  /* seperate filename again*/
-  cur_arg = strtok_r(cmdline, " ", &save_rest);
-
-  acquire_filesys_lock();
-
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
@@ -504,21 +374,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
-  file_deny_write(file);
-
-  thread_current()->self = file;
-
-
  done:
   /* We arrive here whether the load is successful or not. */
-<<<<<<< HEAD
   file_close(file);
   release_file_lock();
-=======
-  // ??? should it close?
-  // file_close (file);
-  release_filesys_lock();
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
   return success;
 }
 

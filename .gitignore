@@ -2,8 +2,8 @@
 
 !pintos/
 pintos/*
-# !pintos/src/
-# pintos/src/*
+!pintos/src/
+pintos/src/*
 # !*/
 
 # !pintos_project1/
