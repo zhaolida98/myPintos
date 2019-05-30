@@ -2,17 +2,17 @@
 
 !pintos/
 pintos/*
-!pintos/src/
-pintos/src/*
-!*/
+# !pintos/src/
+# pintos/src/*
+# !*/
 
-!pintos_project1/
-pintos_project1/*
-!pintos_project1/src/
-pintos_project1/src/*
-!*/
-# !pintos_project1/src
+# !pintos_project1/
+# pintos_project1/*
+# !pintos_project1/src/
+# pintos_project1/src/*
+# !*/
+# # !pintos_project1/src
 
-!*.c
-!*.h
-!.gitignore
+# !*.c
+# !*.h
+# !.gitignore

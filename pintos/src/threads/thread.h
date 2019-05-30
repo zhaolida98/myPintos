@@ -4,8 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "fixed_point.h"
-#include "synch.h"
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -25,6 +24,13 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+struct child_thread {
+  struct list_elem child_thread_elem;
+  int exit_status;
+  int tid;
+};
+
 
 /* A kernel thread or user process.
 
@@ -94,19 +100,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    //process_exit 临时变量
-    bool exit;
-    int exit_error_code;
-    struct list child_proc;
-    struct thread *parent;
 
-    int waitingon;
-    struct semaphore child_lock;
-
-
-    //for file writing
-    struct list files;
-    int fd_count;
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -114,16 +108,21 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    int64_t block_ticks;
-    struct semaphore semaphore;
 
-      struct child {
-      int tid;
-      struct list_elem elem;
-      int exit_error;
-      bool used;
-    };
+
+    struct semaphore exec_sema; // semaphore for child thread load
+    struct semaphore child_sema; // semaphore for child thread exit
+
+    bool exec_status; // flag for child load success
+    struct thread* parent; // parent thread
+    struct list childs; // child thread
+    int exit_status; // the exit status
+    struct list files;// the list of opened files
+    struct file * executable; // the thread executable file 
+    int max_fd; // the file descriptor used by the thread
   };
+
+
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -160,5 +159,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-void check_block_thread_ticks(struct thread *t, void *notused UNUSED);
+
+void acquire_file_lock(void);
+void release_file_lock(void);
+
+
+int child_thread_wait(int);
+
 #endif /* threads/thread.h */
