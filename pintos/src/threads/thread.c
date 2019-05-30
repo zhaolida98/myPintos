@@ -107,10 +107,6 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-<<<<<<< HEAD
-
-=======
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -197,20 +193,11 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-<<<<<<< HEAD
   // allocate space for child thread struct
   struct child_thread *ct = malloc(sizeof(struct child_thread));
   ct->tid = tid;
   // add the child thread struct to the childs of the current thread 
   list_push_back (&thread_current()->childs, &(ct->child_thread_elem));
-=======
-  
-  struct child* c = malloc(sizeof(*c));
-  c->tid = tid;
-  c->exit_error = t->exit_error_code;
-  c->used = false;
-  list_push_back (&running_thread()->child_proc, &c->elem);
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
   old_level = intr_disable ();
   
@@ -354,15 +341,6 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
-<<<<<<< HEAD
-=======
-    // while(!list_empty(&thread_current()->child_proc)){
-    //   struct proc_file *f = list_entry (list_pop_front(&thread_current()->child_proc), struct child, elem);
-    //   free(f);
-    // }
-
-  intr_disable ();
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -536,7 +514,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-<<<<<<< HEAD
   // initiable thread relative variables
   list_init(&t->childs);
   list_init(&t->files);
@@ -550,17 +527,6 @@ init_thread (struct thread *t, const char *name, int priority)
 
   if(t == initial_thread) t->parent = NULL;
   else t->parent = thread_current();
-=======
-  list_init (&t->child_proc);
-
-  t->block_ticks = 0;
-  //临时变量
-  t->exit = 0;
-  t->parent = running_thread();
-  //for file write
-  list_init (&t->files);
-  t->fd_count = 2;
->>>>>>> 87488076e9e7946cb90d58bf05e81b5d0241b156
 
   t->exit_error_code = -100;
   
